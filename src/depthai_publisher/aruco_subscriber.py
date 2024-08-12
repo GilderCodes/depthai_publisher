@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 
 import cv2
-
 import rospy
 from sensor_msgs.msg import CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
-
 import numpy as np
-
+from std_msgs.msg import Int32
 
 class ArucoDetector():
-    aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_100)
+    aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_5X5_100)
     aruco_params = cv2.aruco.DetectorParameters_create()
 
     frame_sub_topic = '/depthai_node/image/compressed'
 
     def __init__(self):
-        self.aruco_pub = rospy.Publisher(
-            '/processed_aruco/image/compressed', CompressedImage, queue_size=10)
-
+        self.image_pub = rospy.Publisher(
+            '/processed_aruco/image/compressed', CompressedImage, queue_size=10)  # Publisher for processed images
+        
+        self.aruco_pub = rospy.Publisher('/aruco_id', Int32, queue_size=10)  # Publisher for ArUco ID
+        
         self.br = CvBridge()
 
         if not rospy.is_shutdown():
@@ -33,9 +33,6 @@ class ArucoDetector():
 
         aruco = self.find_aruco(frame)
         self.publish_to_ros(aruco)
-
-        # cv2.imshow('aruco', aruco)
-        # cv2.waitKey(1)
 
     def find_aruco(self, frame):
         (corners, ids, _) = cv2.aruco.detectMarkers(
@@ -60,8 +57,14 @@ class ArucoDetector():
 
                 rospy.loginfo("Aruco detected, ID: {}".format(marker_ID))
 
-                cv2.putText(frame, str(
-                    marker_ID), (top_left[0], top_right[1] - 15), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0), 2)
+                # Create an Int32 message and publish it
+                marker_msg = Int32()
+                marker_msg.data = int(marker_ID)
+                self.aruco_pub.publish(marker_msg)  # Publish the ArUco ID
+                rospy.loginfo("Published Aruco ID: {}".format(marker_ID))
+
+                cv2.putText(frame, str(marker_ID), (top_left[0], top_right[1] - 15),
+                            cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0), 2)
 
         return frame
 
@@ -71,8 +74,7 @@ class ArucoDetector():
         msg_out.format = "jpeg"
         msg_out.data = np.array(cv2.imencode('.jpg', frame)[1]).tostring()
 
-        self.aruco_pub.publish(msg_out)
-
+        self.image_pub.publish(msg_out)  # Publish the processed image
 
 def main():
     rospy.init_node('EGB349_vision', anonymous=True)
@@ -81,3 +83,6 @@ def main():
     aruco_detect = ArucoDetector()
 
     rospy.spin()
+
+if __name__ == '__main__':
+    main()
