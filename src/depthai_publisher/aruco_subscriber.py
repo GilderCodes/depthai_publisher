@@ -6,6 +6,7 @@ from sensor_msgs.msg import CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 from std_msgs.msg import Int32
+import threading
 
 class ArucoDetector():
     aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_5X5_100)
@@ -16,20 +17,30 @@ class ArucoDetector():
     def __init__(self):
         self.image_pub = rospy.Publisher(
             '/processed_aruco/image/compressed', CompressedImage, queue_size=10)  # Publisher for processed images
-        
+
         self.aruco_pub = rospy.Publisher('/aruco_id', Int32, queue_size=10)  # Publisher for ArUco ID
-        
+
         self.br = CvBridge()
+        self.last_msg_time = rospy.Time(0)
+        self.lock = threading.Lock()
+        self.image_sub = rospy.Subscriber('/camera/image/compressed', CompressedImage, self.img_callback)
 
         if not rospy.is_shutdown():
             self.frame_sub = rospy.Subscriber(
                 self.frame_sub_topic, CompressedImage, self.img_callback)
 
     def img_callback(self, msg_in):
+        with self.lock:
+            if msg_in.header.stamp <= self.last_msg_time:
+                return
+            self.last_msg_time = msg_in.header.stamp
+
         try:
             frame = self.br.compressed_imgmsg_to_cv2(msg_in)
         except CvBridgeError as e:
-            rospy.logerr(e)
+            rospy.logger(e)
+            return
+  
 
         aruco = self.find_aruco(frame)
         self.publish_to_ros(aruco)
