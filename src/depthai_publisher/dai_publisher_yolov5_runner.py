@@ -28,11 +28,11 @@ cam=None
 # sync outputs
 syncNN = True
 # model path
-modelsPath = "/home/cdrone/catkin_ws/src/depthai_publisher/src/depthai_publisher/models"
+modelsPath = "/home/uavteam6/catkin_ws/src/depthai_publisher/src/depthai_publisher/models"
 # modelName = 'exp31Yolov5_ov21.4_6sh'
 modelName = 'best_openvino_2022.1_6shave'
 # confJson = 'exp31Yolov5.json'
-confJson = 'best.json'
+confJson = 'Best.json'
 
 ################################  Yolo Config File
 # parse config
