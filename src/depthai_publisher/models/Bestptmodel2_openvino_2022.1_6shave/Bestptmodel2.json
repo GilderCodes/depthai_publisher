@@ -47,8 +47,8 @@
                     8
                 ]
             },
-            "iou_threshold": 0.5,
-            "confidence_threshold": 0.5
+            "iou_threshold": 0.25,
+            "confidence_threshold": 0.2
         }
     },
     "mappings": {

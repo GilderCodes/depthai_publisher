@@ -260,8 +260,8 @@ class DepthaiCamera():
         pipeline = dai.Pipeline()
 
         # pipeline.setOpenVINOVersion(version = dai.OpenVINO.VERSION_2021_4)
-        # pipeline.setOpenVINOVersion(version=dai.OpenVINO.Version.VERSION_2021_4)
-        pipeline.setOpenVINOVersion(version=dai.OpenVINO.Version.VERSION_2022_1)
+        pipeline.setOpenVINOVersion(version=dai.OpenVINO.Version.VERSION_2021_4)
+        # pipeline.setOpenVINOVersion(version=dai.OpenVINO.Version.VERSION_2022_1)
 
         # Define a neural network that will make predictions based on the source frames
         detection_nn = pipeline.create(dai.node.YoloDetectionNetwork)
