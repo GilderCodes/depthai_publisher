@@ -23,6 +23,9 @@ def corners_callback(msg):
     # If not processed, add to the dictionary
     processed_markers[marker_id] = corners[1:]
 
+    # Store corner points
+    processed_markers[marker_id] = corners_2d
+    
     # Print the corners to the terminal
     rospy.loginfo("Received ArUco corners for marker {}:".format(marker_id))
     for i in range(0, len(processed_markers[marker_id]), 2):
@@ -33,6 +36,20 @@ def marker_id_callback(msg):
     global processed_markers
 
     marker_id = msg.data
+    corners = msg.data
+    
+    num_corners = len(corners) - 1
+
+    if len(corners[1:]) != 8:
+        rospy.logwarn("Unexpected number of corners. Expected 8 values (4 corners).")
+        return
+    
+    corners_2d = np.array([
+        [corners[1], corners[2]],
+        [corners[3], corners[4]],
+        [corners[5], corners[6]],
+        [corners[7], corners[8]]
+    ], dtype=np.float32) 
 
     # If marker_id is in the processed_markers, print its corners
     if marker_id in processed_markers:
@@ -43,6 +60,10 @@ def marker_id_callback(msg):
             rospy.loginfo("Corner {}: x = {:.2f}, y = {:.2f}".format(i // 2, x, y))
     else:
         rospy.loginfo("Marker ID {} not found in processed markers.".format(marker_id))
+
+    
+    processed_markers[marker_id] = corners_2d
+
 
 def main():
     rospy.init_node('aruco_corners_subscriber', anonymous=True)
