@@ -41,10 +41,16 @@ class PoseEstimator():
 
             if success:
                # Create a TransformStamped message
+                
+                # rvec: rotation vector
+                # tvec: translation vector
+                rospy.loginfo(f"Rotation Vector: {rvec}")
+                rospy.loginfo(f"Translation Vector: {tvec}")
+                
                 t = TransformStamped()
                 t.header.stamp = rospy.Time.now()
                 t.header.frame_id = "camera"  # Camera frame
-                t.child_frame_id = "target"  # Target frame
+                t.child_frame_id = "marker_{}".format(marker_id) #"target"  # Target frame
 
                 t.transform.translation.x = tvec[0]
                 t.transform.translation.y = tvec[1]

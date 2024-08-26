@@ -19,8 +19,8 @@ def send_tf_camera():
 	# below the UAV and pointing downwards
     t = TransformStamped()
     t.header.stamp = rospy.Time.now()
-    t.header.frame_id = "camera"
-    t.child_frame_id = "target"
+    t.header.frame_id = camera_name
+    t.child_frame_id = target_name
 
     t.transform.translation.x = msg.transform.translation.x
     t.transform.translation.y = msg.transform.translation.y
@@ -64,6 +64,11 @@ if __name__ == '__main__':
 	tfbr = tf2_ros.TransformBroadcaster() 
 	pub_found = rospy.Publisher('/emulated_uav/target_found', Time, queue_size=10)
 
+	# Give the nodes a few seconds to configure
+	rospy.sleep(rospy.Duration(2))
+
+	# Send out our target messages
+	send_tf_camera()
     # Subscribe to the pose estimator topic
 	rospy.Subscriber('/pose_estimator/target_transform', TransformStamped, target_tf_callback)
       

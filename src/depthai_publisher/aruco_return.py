@@ -37,7 +37,7 @@ def marker_id_callback(msg):
 
     marker_id = msg.data
     corners = msg.data
-    
+
     num_corners = len(corners) - 1
 
     if len(corners[1:]) != 8:
