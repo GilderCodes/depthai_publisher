@@ -11,6 +11,7 @@ from sensor_msgs.msg import Image
 from sensor_msgs.msg import CompressedImage
 from sensor_msgs.msg import CameraInfo
 from cv_bridge import CvBridge, CvBridgeError
+from std_msgs.msg import Int32, Float32MultiArray
 
 class PoseEstimator():
     def __init__(self):
@@ -46,7 +47,7 @@ class PoseEstimator():
                 # tvec: translation vector
                 rospy.loginfo(f"Rotation Vector: {rvec}")
                 rospy.loginfo(f"Translation Vector: {tvec}")
-                
+                 
                 t = TransformStamped()
                 t.header.stamp = rospy.Time.now()
                 t.header.frame_id = "camera"  # Camera frame
@@ -73,13 +74,12 @@ class PoseEstimator():
                 rospy.logwarn("Pose estimation failed for marker ID {}.".format(marker_id))
 
     def camera_info_callback(self, msg):
-        self.camera_matrix = np.array([
-            [(1479.458984, 0.000000, 950.694458), 
-             (0.000000, 1477.587158, 530.697632), 
-             (0.000000, 0.000000, 1.000000)]
-        ], dtype=np.float32)
-        self.dist_coeffs = np.array([-1.872860,   16.683033,    0.001053,   -0.002063,   61.878521,   -2.158907,   18.424637,
-        57.682858,    0.000000,    0.000000,    0.000000,    0.000000,    0.000000,    0.000000], dtype=np.float32)
+        #info from D (0,1,2,3,4)
+        self.dist_coeffs = np.array([[-0.10818, 0.12793, 0.00000, 0.00000, -0.04204]], dtype=np.float32)
+        #info from P ([0,1,2],[4,5,6],[8,9,10])
+        self.camera_matrix = np.array([(615.381, 0.0, 320.0), 
+                                     (0.0, 615.381, 240.0), 
+                                     (0.0, 0.0, 1.0)], dtype=np.float32)
 
     def main(self):
         rospy.init_node('pose_estimator', anonymous=True)
