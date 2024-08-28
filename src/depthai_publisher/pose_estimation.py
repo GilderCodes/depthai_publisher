@@ -11,6 +11,7 @@ from sensor_msgs.msg import Image
 from sensor_msgs.msg import CompressedImage
 from sensor_msgs.msg import CameraInfo
 from cv_bridge import CvBridge, CvBridgeError
+from std_msgs.msg import Float32MultiArray, Int32
 
 class PoseEstimator():
     def __init__(self):
@@ -88,3 +89,5 @@ class PoseEstimator():
         rospy.Subscriber('/camera_info', CameraInfo, self.camera_info_callback)
         rospy.spin()
 
+    if __name__ == '__main__':
+        main()

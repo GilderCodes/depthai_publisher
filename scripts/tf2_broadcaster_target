@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+
+from depthai_publisher import tf2_broadcaster_target
+
+if __name__ == '__main__':
+    tf2_broadcaster_target.main()
