@@ -5,7 +5,7 @@ import rospy
 from sensor_msgs.msg import CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
-from std_msgs.msg import Int32, Float32MultiArray
+from std_msgs.msg import Float32MultiArray
 import threading
 
 class ArucoDetector():
@@ -18,13 +18,12 @@ class ArucoDetector():
         self.image_pub = rospy.Publisher(
             '/processed_aruco/image/compressed', CompressedImage, queue_size=10)  # Publisher for processed images
 
-        self.aruco_pub = rospy.Publisher('/aruco_id', Int32, queue_size=10)  # Publisher for ArUco ID
-        self.corners_pub = rospy.Publisher('/aruco_corners', Float32MultiArray, queue_size=10)  # Publisher for ArUco corners
+        self.aruco_detection_pub = rospy.Publisher('/aruco_detection', Float32MultiArray, queue_size=10)  # Combined publisher
 
         self.br = CvBridge()
         self.last_msg_time = rospy.Time(0)
         self.lock = threading.Lock()
-        self.detected_ids = set() # Set to store detected ArUco marker IDs
+        self.detected_ids = set()  # Set to store detected ArUco marker IDs
         self.image_sub = rospy.Subscriber('/camera/image/compressed', CompressedImage, self.img_callback)
 
         if not rospy.is_shutdown():
@@ -54,42 +53,34 @@ class ArucoDetector():
             ids = ids.flatten()
 
             for (marker_corner, marker_ID) in zip(corners, ids):
-
-                 # If the marker ID has already been detected, skip further processing
-                if marker_ID in self.detected_ids:
-                    continue
-
-                # If not already detected, mark as detected
-                self.detected_ids.add(marker_ID)
-                
+                # Draw the bounding box around the detected ArUco marker
                 corners = marker_corner.reshape((4, 2))
                 (top_left, top_right, bottom_right, bottom_left) = corners
 
-                top_right = (int(top_right[0]), int(top_right[1]))
-                bottom_right = (int(bottom_right[0]), int(bottom_right[1]))
-                bottom_left = (int(bottom_left[0]), int(bottom_left[1]))
-                top_left = (int(top_left[0]), int(top_left[1]))
+                # Draw marker edges regardless of detection state
+                cv2.line(frame, tuple(map(int, top_left)), tuple(map(int, top_right)), (0, 255, 0), 2)
+                cv2.line(frame, tuple(map(int, top_right)), tuple(map(int, bottom_right)), (0, 255, 0), 2)
+                cv2.line(frame, tuple(map(int, bottom_right)), tuple(map(int, bottom_left)), (0, 255, 0), 2)
+                cv2.line(frame, tuple(map(int, bottom_left)), tuple(map(int, top_left)), (0, 255, 0), 2)
 
-                cv2.line(frame, top_left, top_right, (0, 255, 0), 2)
-                cv2.line(frame, top_right, bottom_right, (0, 255, 0), 2)
-                cv2.line(frame, bottom_right, bottom_left, (0, 255, 0), 2)
-                cv2.line(frame, bottom_left, top_left, (0, 255, 0), 2)
-
-                rospy.loginfo("Aruco detected, ID: {}".format(marker_ID))
-
-                # Create an Int32 message and publish it
-                marker_msg = Int32()
-                marker_msg.data = int(marker_ID)
-                self.aruco_pub.publish(marker_msg)  # Publish the ArUco ID
-                rospy.loginfo("Published Aruco ID: {}".format(marker_ID))
-
-                # Create a Float32MultiArray message for the corners
-                corners_msg = Float32MultiArray()
-                corners_msg.data = [coord for point in corners for coord in point]
-                self.corners_pub.publish(corners_msg)  # Publish the corners
-
-                cv2.putText(frame, str(marker_ID), (top_left[0], top_right[1] - 15),
+                # Annotate the frame with the detected ID
+                cv2.putText(frame, str(marker_ID), (int(top_left[0]), int(top_left[1]) - 15),
                             cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0), 2)
+
+                # Publish ID and corners only if the marker hasn't been detected before
+                if marker_ID not in self.detected_ids:
+                    rospy.loginfo("Aruco detected, ID: {}".format(marker_ID))
+                    
+                    # Mark ID as detected
+                    self.detected_ids.add(marker_ID)
+
+                    # Create a Float32MultiArray message for the combined ID and corners
+                    detection_msg = Float32MultiArray()
+                    detection_msg.data = [float(marker_ID)] + [coord for point in corners for coord in point]
+
+                    # Publish the combined message
+                    self.aruco_detection_pub.publish(detection_msg)
+                    rospy.loginfo("Published Aruco ID and corners: {}".format(detection_msg.data))
 
         return frame
 

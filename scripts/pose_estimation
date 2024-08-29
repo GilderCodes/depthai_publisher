@@ -3,4 +3,4 @@
 from depthai_publisher import pose_estimation
 
 if __name__ == '__main__':
-    pose_estimation()
+    pose_estimation.main()
