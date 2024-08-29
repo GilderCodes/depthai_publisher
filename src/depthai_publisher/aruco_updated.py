@@ -24,6 +24,7 @@ class ArucoDetector():
         self.br = CvBridge()
         self.last_msg_time = rospy.Time(0)
         self.lock = threading.Lock()
+        self.detected_ids = set() # Set to store detected ArUco marker IDs
         self.image_sub = rospy.Subscriber('/camera/image/compressed', CompressedImage, self.img_callback)
 
         if not rospy.is_shutdown():
@@ -53,6 +54,14 @@ class ArucoDetector():
             ids = ids.flatten()
 
             for (marker_corner, marker_ID) in zip(corners, ids):
+
+                 # If the marker ID has already been detected, skip further processing
+                if marker_ID in self.detected_ids:
+                    continue
+
+                # If not already detected, mark as detected
+                self.detected_ids.add(marker_ID)
+                
                 corners = marker_corner.reshape((4, 2))
                 (top_left, top_right, bottom_right, bottom_left) = corners
 
