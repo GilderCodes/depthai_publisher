@@ -84,7 +84,7 @@ class PoseEstimator:
 
     def roi_callback(self, msg):
         # The data consists of [object_id, xmin, ymin, xmax, ymax]
-        object_id = int(msg.data[0])
+        object_id = (msg.data[0])
         xmin, ymin, xmax, ymax = msg.data[1:5]
         # Determine the label based on the ID
         if object_id == 0.1:
