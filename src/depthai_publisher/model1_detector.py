@@ -18,6 +18,7 @@ import numpy as np
 import depthai as dai
 import rospy
 from sensor_msgs.msg import CompressedImage, Image, CameraInfo
+from std_msgs.msg import Float32MultiArray
 from cv_bridge import CvBridge, CvBridgeError
 
 ############################### ############################### Parameters ###############################
@@ -64,6 +65,7 @@ class DepthaiCamera():
     pub_topic_raw = '/depthai_node/image/raw'
     pub_topic_detect = '/depthai_node/detection/compressed'
     pub_topic_cam_inf = '/depthai_node/camera/camera_info'
+    pub_topic_roi = '/roi_detection'  # New topic for ROI detection
 
     def __init__(self):
         self.pipeline = dai.Pipeline()
@@ -78,14 +80,39 @@ class DepthaiCamera():
         self.pub_image_detect = rospy.Publisher(self.pub_topic_detect, CompressedImage, queue_size=10)
         # Create a publisher for the CameraInfo topic
         self.pub_cam_inf = rospy.Publisher(self.pub_topic_cam_inf, CameraInfo, queue_size=10)
+        self.pub_roi_detection = rospy.Publisher(self.pub_topic_roi, Float32MultiArray, queue_size=10)  # New publisher
         # Create a timer for the callback
         self.timer = rospy.Timer(rospy.Duration(1.0 / 10), self.publish_camera_info, oneshot=False)
+
+        # Keep track of already published IDs
+        self.published_ids = set()
 
         rospy.loginfo("Publishing images to rostopic: {}".format(self.pub_topic))
 
         self.br = CvBridge()
 
         rospy.on_shutdown(lambda: self.shutdown())
+    
+    def publish_roi_detection(self, detection):
+        # Determine ID based on the label
+        if labels[detection.label] == "Backpack":
+            object_id = 0.1
+        elif labels[detection.label] == "Human":
+            object_id = 0.2
+        else:
+            return
+
+        # Check if this ID has already been published
+        if object_id in self.published_ids:
+            return
+
+        # Mark this ID as published
+        self.published_ids.add(object_id)
+
+        # Create and publish Float32MultiArray message
+        msg = Float32MultiArray()
+        msg.data = [object_id, detection.xmin, detection.ymin, detection.xmax, detection.ymax]
+        self.pub_roi_detection.publish(msg)
 
     def publish_camera_info(self, timer=None):
         # Create a publisher for the CameraInfo topic
@@ -173,17 +200,14 @@ class DepthaiCamera():
                 else:
                     print("Cam Image empty, trying again...")
                     continue
+
                 
                 if inDet is not None:
                     detections = inDet.detections
-                    # print(detections)
                     for detection in detections:
-                        # print(detection)
-                        # print("{},{},{},{},{},{},{}".format(detection.label,labels[detection.label],detection.confidence,detection.xmin, detection.ymin, detection.xmax, detection.ymax))
                         found_classes.append(detection.label)
-                        # print(dai.ImgDetection.getData(detection))
+                        self.publish_roi_detection(detection)  # Publish detections to /roi_detection
                     found_classes = np.unique(found_classes)
-                    # print(found_classes)
                     overlay = self.show_yolo(frame, detections)
                 else:
                     print("Detection empty, trying again...")
