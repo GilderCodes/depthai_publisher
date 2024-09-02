@@ -5,22 +5,25 @@ import rospy
 import numpy as np
 import tf2_ros
 import tf_conversions
+from tf2_ros import StaticTransformBroadcaster, Buffer, TransformListener
 from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Time
 from geometry_msgs.msg import TransformStamped
 
 class PoseEstimator:
-    def __init__(self, tf_broadcaster):
+    def __init__(self, tf_broadcaster, static_tf_broadcaster):
         rospy.init_node('pose_estimator', anonymous=True)
         
         # Subscribers for ArUco and ROI detections
         rospy.Subscriber('/aruco_detection', Float32MultiArray, self.aruco_callback)
         rospy.Subscriber('/roi_detection', Float32MultiArray, self.roi_callback)
+        self.pub_found = rospy.Publisher('/emulated_uav/target_found', Time, queue_size=10)
 
         # Publishers
         self.aruco_stored_pub = rospy.Publisher('/aruco_stored', Float32MultiArray, queue_size=10)
 
         # Initialize ArUco marker parameters
-        marker_size = 1.0
+        marker_size = 0.2 # Updated the marker size to what they will be
         self.model_object = np.array([
             (-marker_size / 2, marker_size / 2, 0),  # Top-left corner
             (marker_size / 2, marker_size / 2, 0),   # Top-right corner
@@ -34,8 +37,11 @@ class PoseEstimator:
                                        (0.0, 615.381, 240.0), 
                                        (0.0, 0.0, 1.0)], dtype=np.float32)
         
-        # Store the tf2 broadcaster
+        # Store the tf2 broadcasters
         self.tf_broadcaster = tf_broadcaster
+        self.static_tf_broadcaster = static_tf_broadcaster
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer)
         
         rospy.loginfo("PoseEstimator initialized successfully")
 
@@ -60,15 +66,21 @@ class PoseEstimator:
         (success, rvec, tvec) = cv2.solvePnP(self.model_object, corners_2d, self.camera_matrix, self.dist_coeffs)
 
         if success:
-            # Create a TransformStamped message
+            # Create a TransformStamped message for the static transform
+            trans = self.tf_buffer.lookup_transform('map', 'camera', rospy.Time(0))
+
             t = TransformStamped()
             t.header.stamp = rospy.Time.now()
-            t.header.frame_id = "camera"
-            t.child_frame_id = "marker_{}".format(aruco_id)
+            t.header.frame_id = "map"
+            t.child_frame_id = "ArUco_{}".format(aruco_id)
 
-            t.transform.translation.x = tvec[0]
-            t.transform.translation.y = tvec[1]
-            t.transform.translation.z = 0.0
+            t.transform.translation.x = tvec[0] + trans.transform.translation.x
+            t.transform.translation.y = tvec[1] + trans.transform.translation.y
+            t.transform.translation.z = 0
+
+            rospy.loginfo("Translation x: %f", t.transform.translation.x)
+            rospy.loginfo("Translation y: %f", t.transform.translation.y)
+            rospy.loginfo("Translation z: %f", t.transform.translation.z)
 
             # Convert rotation vector to quaternion (dummy values used here)
             t.transform.rotation.x = 0.0
@@ -76,24 +88,24 @@ class PoseEstimator:
             t.transform.rotation.z = 0.0
             t.transform.rotation.w = 1.0
 
-            # Publish the transform
-            self.tf_broadcaster.sendTransform(t)
-
+            # Publish the static transform
+            self.static_tf_broadcaster.sendTransform(t)
+            rospy.loginfo(f"Static marker published for ArUco ID: {aruco_id}")
         else:
             rospy.logwarn(f"Pose estimation failed for marker ID {aruco_id}.")
 
     def roi_callback(self, msg):
         # The data consists of [object_id, xmin, ymin, xmax, ymax]
-        object_id = (msg.data[0])
+        object_id = int(10*msg.data[0])
         xmin, ymin, xmax, ymax = msg.data[1:5]
         # Determine the label based on the ID
-        if object_id == 0.1:
+        if object_id == 1:
             label = "Backpack"
-        elif object_id == 0.2:
+        elif object_id == 2:
             label = "Human"
-        elif object_id == 0.3:
+        elif object_id == 3:
             label = "Drone"
-        elif object_id == 0.4:
+        elif object_id == 4:
             label = "Phone"
         else:
             label = "Unknown"
@@ -114,16 +126,17 @@ class PoseEstimator:
         # Perform pose estimation
         (success, rvec, tvec) = cv2.solvePnP(self.model_object, corners_2d, self.camera_matrix, self.dist_coeffs)
 
-        if success:
+        if success and label != "Unknown":
             # Create a TransformStamped message
+            time_found = rospy.Time.now()
             t = TransformStamped()
             t.header.stamp = rospy.Time.now()
             t.header.frame_id = "camera"
-            t.child_frame_id = f"roi_{label}" 
+            t.child_frame_id = "target"
 
             t.transform.translation.x = tvec[0]
             t.transform.translation.y = tvec[1]
-            t.transform.translation.z = 0.0
+            t.transform.translation.z = tvec[2]
 
             # Convert rotation vector to quaternion (dummy values used here)
             t.transform.rotation.x = 0.0
@@ -133,6 +146,8 @@ class PoseEstimator:
 
             # Publish the transform
             self.tf_broadcaster.sendTransform(t)
+            self.pub_found.publish(time_found)
+            rospy.loginfo(f"Target Sent")
 
         else:
             rospy.logwarn(f"Pose estimation failed for ROI Object ID {object_id}.")
@@ -142,7 +157,9 @@ class PoseEstimator:
 
 def main():
     tf_broadcaster = tf2_ros.TransformBroadcaster()
-    estimator = PoseEstimator(tf_broadcaster)
+    static_tf_broadcaster = tf2_ros.StaticTransformBroadcaster()
+    estimator = PoseEstimator(tf_broadcaster, static_tf_broadcaster)
+    
     estimator.run()
 
 if __name__ == '__main__':

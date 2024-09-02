@@ -84,6 +84,9 @@ class DepthaiCamera():
         # Create a timer for the callback
         self.timer = rospy.Timer(rospy.Duration(1.0 / 10), self.publish_camera_info, oneshot=False)
 
+        # Keep track of already published IDs
+        self.published_ids = set()
+        
         rospy.loginfo("Publishing images to rostopic: {}".format(self.pub_topic))
 
         self.br = CvBridge()

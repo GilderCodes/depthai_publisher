@@ -113,6 +113,7 @@ class DepthaiCamera():
         msg = Float32MultiArray()
         msg.data = [object_id, detection.xmin, detection.ymin, detection.xmax, detection.ymax]
         self.pub_roi_detection.publish(msg)
+        rospy.loginfo("Detection sent")
 
     def publish_camera_info(self, timer=None):
         # Create a publisher for the CameraInfo topic
