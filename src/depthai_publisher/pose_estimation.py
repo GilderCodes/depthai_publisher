@@ -9,6 +9,7 @@ from tf2_ros import StaticTransformBroadcaster, Buffer, TransformListener
 from std_msgs.msg import Float32MultiArray
 from std_msgs.msg import Time
 from geometry_msgs.msg import TransformStamped
+import subprocess
 
 class PoseEstimator:
     def __init__(self, tf_broadcaster, static_tf_broadcaster):
@@ -95,6 +96,7 @@ class PoseEstimator:
             rospy.logwarn(f"Pose estimation failed for marker ID {aruco_id}.")
 
     def roi_callback(self, msg):
+        subprocess.Popen(['rosrun', 'spar_node', 'tf2_broadcaster_target'])
         # The data consists of [object_id, xmin, ymin, xmax, ymax]
         object_id = int(10*msg.data[0])
         xmin, ymin, xmax, ymax = msg.data[1:5]
