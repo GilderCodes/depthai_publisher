@@ -33,10 +33,10 @@ class PoseEstimator:
         ], dtype=np.float32)
 
         # Camera parameters
-        self.dist_coeffs = np.array([[-0.10818, 0.12793, 0.00000, 0.00000, -0.04204]], dtype=np.float32)
+        self.dist_coeffs = np.array([[-0.10818, 0.12793, 0.00000, 0.00000, -0.04204]], dtype=np.float32) #msg in D
         self.camera_matrix = np.array([(615.381, 0.0, 320.0), 
                                        (0.0, 615.381, 240.0), 
-                                       (0.0, 0.0, 1.0)], dtype=np.float32)
+                                       (0.0, 0.0, 1.0)], dtype=np.float32) # msg in P 
         
         # Store the tf2 broadcasters
         self.tf_broadcaster = tf_broadcaster
@@ -96,10 +96,12 @@ class PoseEstimator:
             rospy.logwarn(f"Pose estimation failed for marker ID {aruco_id}.")
 
     def roi_callback(self, msg):
-        subprocess.Popen(['rosrun', 'spar_node', 'tf2_broadcaster_target'])
+       # subprocess.Popen(['rosrun', 'spar_node', 'tf2_broadcaster_target'])
         # The data consists of [object_id, xmin, ymin, xmax, ymax]
         object_id = int(10*msg.data[0])
         xmin, ymin, xmax, ymax = msg.data[1:5]
+        marker_size_x, marker_size_y = msg.data[5:7] 
+
         # Determine the label based on the ID
         if object_id == 1:
             label = "Backpack"
@@ -112,8 +114,17 @@ class PoseEstimator:
         else:
             label = "Unknown"
 
+
+        # Create the object model based on the bounding box size
+        self.model_obj = np.array([
+            (-marker_size_x / 2, marker_size_y / 2, 0),  # Top-left corner
+            (marker_size_x / 2, marker_size_y / 2, 0),   # Top-right corner
+            (marker_size_x / 2, -marker_size_y / 2, 0),  # Bottom-right corner
+            (-marker_size_x / 2, -marker_size_y / 2, 0)  # Bottom-left corner
+        ], dtype=np.float32)
+        
         # Convert ROI to a 4-corner format for pose estimation
-        corners_2d = np.array([
+        corners_t2d = np.array([
             [xmin, ymin],  # Top-left corner
             [xmax, ymin],  # Top-right corner
             [xmax, ymax],  # Bottom-right corner
@@ -123,36 +134,40 @@ class PoseEstimator:
         # Print the details of the ROI detection
         rospy.loginfo(f"Detected ROI Object ID: {object_id}")
         rospy.loginfo(f"Bounding Box: ({xmin}, {ymin}), ({xmax}, {ymax})")
-        rospy.loginfo(f"Converted Corners:\n{corners_2d}")
+        rospy.loginfo(f"Converted Corners:\n{corners_t2d}")
 
         # Perform pose estimation
-        # (success, rvec, tvec) = cv2.solvePnP(self.model_object, corners_2d, self.camera_matrix, self.dist_coeffs)
+        (success, rvec, tvec) = cv2.solvePnP(self.model_obj, corners_t2d, self.camera_matrix, self.dist_coeffs)
 
-        # if success and label != "Unknown":
-        #     # Create a TransformStamped message
-        #     time_found = rospy.Time.now()
-        #     t = TransformStamped()
-        #     t.header.stamp = rospy.Time.now()
-        #     t.header.frame_id = "camera"
-        #     t.child_frame_id = "target"
+        if success and label != "Unknown":
+            # Create a TransformStamped message
+            time_found = rospy.Time.now()
+            t = TransformStamped()
+            t.header.stamp = rospy.Time.now()
+            t.header.frame_id = "camera"
+            t.child_frame_id = "target" #"{}".format(object_id)
 
-        #     t.transform.translation.x = tvec[0]
-        #     t.transform.translation.y = tvec[1]
-        #     t.transform.translation.z = tvec[2]
+            t.transform.translation.x = tvec[0]
+            t.transform.translation.y = tvec[1]
+            t.transform.translation.z = 0 #tvec[2]
 
-        #     # Convert rotation vector to quaternion (dummy values used here)
-        #     t.transform.rotation.x = 0.0
-        #     t.transform.rotation.y = 0.0
-        #     t.transform.rotation.z = 0.0
-        #     t.transform.rotation.w = 1.0
+            rospy.loginfo("Translation x: %f", t.transform.translation.x)
+            rospy.loginfo("Translation y: %f", t.transform.translation.y)
+            rospy.loginfo("Translation z: %f", t.transform.translation.z)
 
-        #     # Publish the transform
-        #     self.tf_broadcaster.sendTransform(t)
-        #     self.pub_found.publish(time_found)
-        #     rospy.loginfo(f"Target Sent")
+            # Convert rotation vector to quaternion (dummy values used here)
+            t.transform.rotation.x = 0.0
+            t.transform.rotation.y = 0.0
+            t.transform.rotation.z = 0.0
+            t.transform.rotation.w = 1.0
 
-        # else:
-        #     rospy.logwarn(f"Pose estimation failed for ROI Object ID {object_id}.")
+            # Publish the transform
+            self.tf_broadcaster.sendTransform(t)
+            self.pub_found.publish(time_found)
+            rospy.loginfo(f"Target Sent")
+
+        else:
+            rospy.logwarn(f"Pose estimation failed for ROI Object ID {object_id}.")
 
     def run(self):
         rospy.spin()
