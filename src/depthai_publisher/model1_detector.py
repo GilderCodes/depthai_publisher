@@ -93,7 +93,7 @@ class DepthaiCamera():
 
         rospy.on_shutdown(lambda: self.shutdown())
     
-    def publish_roi_detection(self, detection):
+    def publish_roi_detection(self, detection, frame):
         # Determine ID based on the label
         if labels[detection.label] == "Backpack":
             object_id = 0.1
@@ -109,9 +109,15 @@ class DepthaiCamera():
         # Mark this ID as published
         self.published_ids.add(object_id)
 
+        # Convert normalized bbox coordinates to absolute pixel coordinates
+        bbox = self.frameNorm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))
+
+
         # Create and publish Float32MultiArray message
         msg = Float32MultiArray()
-        msg.data = [object_id, detection.xmin, detection.ymin, detection.xmax, detection.ymax]
+        # Publish as bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax
+        msg.data = [object_id, bbox[0], bbox[1], bbox[2], bbox[3]]
+        #msg.data = [object_id, detection.xmin, detection.ymin, detection.xmax, detection.ymax]
         self.pub_roi_detection.publish(msg)
         rospy.loginfo("Detection sent")
 
@@ -169,6 +175,8 @@ class DepthaiCamera():
 
         pipeline = self.createPipeline(nnPath)
 
+
+
         with dai.Device() as device:
             cams = device.getConnectedCameras()
             depth_enabled = dai.CameraBoardSocket.LEFT in cams and dai.CameraBoardSocket.RIGHT in cams
@@ -189,6 +197,8 @@ class DepthaiCamera():
             olor2 = (255, 255, 255)
             layer_info_printed = False
             dims = None
+
+
 
             while True:
                 found_classes = []
@@ -222,6 +232,11 @@ class DepthaiCamera():
                     self.publish_detect_to_ros(overlay)
                     self.publish_camera_info()
 
+                # Pass frame arg. to publishing function
+                for detection in detections:
+                    found_classes.append(detection.label)
+                    self.publish_roi_detection(detection, frame)  # Pass frame for coordinate conversion
+
                 ## Function to compute FPS
                 counter+=1
                 if (time.time() - start_time) > 1 :
@@ -229,6 +244,8 @@ class DepthaiCamera():
 
                     counter = 0
                     start_time = time.time()
+
+                
 
 
             # with dai.Device(self.pipeline) as device:
