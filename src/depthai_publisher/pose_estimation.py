@@ -126,33 +126,33 @@ class PoseEstimator:
         rospy.loginfo(f"Converted Corners:\n{corners_2d}")
 
         # Perform pose estimation
-        (success, rvec, tvec) = cv2.solvePnP(self.model_object, corners_2d, self.camera_matrix, self.dist_coeffs)
+        # (success, rvec, tvec) = cv2.solvePnP(self.model_object, corners_2d, self.camera_matrix, self.dist_coeffs)
 
-        if success and label != "Unknown":
-            # Create a TransformStamped message
-            time_found = rospy.Time.now()
-            t = TransformStamped()
-            t.header.stamp = rospy.Time.now()
-            t.header.frame_id = "camera"
-            t.child_frame_id = "target"
+        # if success and label != "Unknown":
+        #     # Create a TransformStamped message
+        #     time_found = rospy.Time.now()
+        #     t = TransformStamped()
+        #     t.header.stamp = rospy.Time.now()
+        #     t.header.frame_id = "camera"
+        #     t.child_frame_id = "target"
 
-            t.transform.translation.x = tvec[0]
-            t.transform.translation.y = tvec[1]
-            t.transform.translation.z = tvec[2]
+        #     t.transform.translation.x = tvec[0]
+        #     t.transform.translation.y = tvec[1]
+        #     t.transform.translation.z = tvec[2]
 
-            # Convert rotation vector to quaternion (dummy values used here)
-            t.transform.rotation.x = 0.0
-            t.transform.rotation.y = 0.0
-            t.transform.rotation.z = 0.0
-            t.transform.rotation.w = 1.0
+        #     # Convert rotation vector to quaternion (dummy values used here)
+        #     t.transform.rotation.x = 0.0
+        #     t.transform.rotation.y = 0.0
+        #     t.transform.rotation.z = 0.0
+        #     t.transform.rotation.w = 1.0
 
-            # Publish the transform
-            self.tf_broadcaster.sendTransform(t)
-            self.pub_found.publish(time_found)
-            rospy.loginfo(f"Target Sent")
+        #     # Publish the transform
+        #     self.tf_broadcaster.sendTransform(t)
+        #     self.pub_found.publish(time_found)
+        #     rospy.loginfo(f"Target Sent")
 
-        else:
-            rospy.logwarn(f"Pose estimation failed for ROI Object ID {object_id}.")
+        # else:
+        #     rospy.logwarn(f"Pose estimation failed for ROI Object ID {object_id}.")
 
     def run(self):
         rospy.spin()
