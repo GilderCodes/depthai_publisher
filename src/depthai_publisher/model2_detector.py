@@ -93,12 +93,12 @@ class DepthaiCamera():
 
         rospy.on_shutdown(lambda: self.shutdown())
 
-    def publish_roi_detection(self, detection):
+    def publish_roi_detection(self, detection, frame):
         # Determine ID based on the label
-        if labels[detection.label] == "drone":
-            object_id = 0.3
-        elif labels[detection.label] == "phone":
-            object_id = 0.4
+        if labels[detection.label] == "Backpack":
+            object_id = 0.1
+        elif labels[detection.label] == "Human":
+            object_id = 0.2
         else:
             return
 
@@ -109,10 +109,26 @@ class DepthaiCamera():
         # Mark this ID as published
         self.published_ids.add(object_id)
 
+        uframe = frame.copy()
+        # Convert normalized bbox coordinates to absolute pixel coordinates
+        bbox = self.frameNorm(uframe, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))
+
+        # Calculate width and height of the bounding box
+        width = bbox[2] - bbox[0]
+        height = bbox[3] - bbox[1]
+
+        # Assuming the marker size is proportional to the bounding box size
+        marker_size_x = width / frame.shape[1]  # Normalize to frame width
+        marker_size_y = height / frame.shape[0] # Normalize to frame height
+
         # Create and publish Float32MultiArray message
         msg = Float32MultiArray()
-        msg.data = [object_id, detection.xmin, detection.ymin, detection.xmax, detection.ymax]
+        # Publish as bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax
+        msg.data = [object_id, bbox[0], bbox[1], bbox[2], bbox[3], marker_size_x, marker_size_y]
+        #msg.data = [object_id, detection.xmin, detection.ymin, detection.xmax, detection.ymax]
         self.pub_roi_detection.publish(msg)
+        rospy.loginfo("Detection sent")
+
     def publish_camera_info(self, timer=None):
         # Create a publisher for the CameraInfo topic
 
@@ -204,7 +220,7 @@ class DepthaiCamera():
                     detections = inDet.detections
                     for detection in detections:
                         found_classes.append(detection.label)
-                        self.publish_roi_detection(detection)  # Publish detections to /roi_detection
+                        self.publish_roi_detection(detection, frame)  # Publish detections to /roi_detection
                     found_classes = np.unique(found_classes)
                     overlay = self.show_yolo(frame, detections)
                 else:

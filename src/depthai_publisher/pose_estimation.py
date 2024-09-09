@@ -149,7 +149,7 @@ class PoseEstimator:
 
             t.transform.translation.x = tvec[0]
             t.transform.translation.y = tvec[1]
-            t.transform.translation.z = 0 #tvec[2]
+            t.transform.translation.z = tvec[2]
 
             rospy.loginfo("Translation x: %f", t.transform.translation.x)
             rospy.loginfo("Translation y: %f", t.transform.translation.y)
