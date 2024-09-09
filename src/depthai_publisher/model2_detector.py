@@ -95,10 +95,10 @@ class DepthaiCamera():
 
     def publish_roi_detection(self, detection, frame):
         # Determine ID based on the label
-        if labels[detection.label] == "Backpack":
-            object_id = 0.1
-        elif labels[detection.label] == "Human":
-            object_id = 0.2
+        if labels[detection.label] == "drone":
+            object_id = 0.3
+        elif labels[detection.label] == "phone":
+            object_id = 0.4
         else:
             return
 

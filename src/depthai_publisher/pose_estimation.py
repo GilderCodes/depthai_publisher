@@ -141,6 +141,7 @@ class PoseEstimator:
 
         if success and label != "Unknown":
             # Create a TransformStamped message
+            # Send the target transform
             time_found = rospy.Time.now()
             t = TransformStamped()
             t.header.stamp = rospy.Time.now()
@@ -166,6 +167,7 @@ class PoseEstimator:
             self.pub_found.publish(time_found)
             rospy.loginfo(f"Target Sent")
 
+            
         else:
             rospy.logwarn(f"Pose estimation failed for ROI Object ID {object_id}.")
 
