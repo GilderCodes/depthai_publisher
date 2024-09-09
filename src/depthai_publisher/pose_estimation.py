@@ -100,7 +100,7 @@ class PoseEstimator:
         # The data consists of [object_id, xmin, ymin, xmax, ymax]
         object_id = int(10*msg.data[0])
         xmin, ymin, xmax, ymax = msg.data[1:5]
-        marker_size_x, marker_size_y = msg.data[5:7] 
+        marker_size_x, marker_size_y = msg.data[6:8] 
 
         # Determine the label based on the ID
         if object_id == 1:
