@@ -118,8 +118,8 @@ class DepthaiCamera():
         height = bbox[3] - bbox[1]
 
         # Assuming the marker size is proportional to the bounding box size
-        marker_size_x = width / frame.shape[1]  # Normalize to frame width
-        marker_size_y = height / frame.shape[0] # Normalize to frame height
+        marker_size_x = width / uframe.shape[1]  # Normalize to frame width
+        marker_size_y = height / uframe.shape[0] # Normalize to frame height
 
         # Create and publish Float32MultiArray message
         msg = Float32MultiArray()
