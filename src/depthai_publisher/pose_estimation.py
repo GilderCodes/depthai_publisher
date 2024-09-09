@@ -141,6 +141,7 @@ class PoseEstimator:
 
         if success and label != "Unknown":
             # Create a TransformStamped message
+            # Send the target transform
             time_found = rospy.Time.now()
             t = TransformStamped()
             t.header.stamp = rospy.Time.now()
@@ -166,6 +167,31 @@ class PoseEstimator:
             self.pub_found.publish(time_found)
             rospy.loginfo(f"Target Sent")
 
+            # Create a TransformStamped message for the static transform
+            trans = self.tf_buffer.lookup_transform('map', 'camera', rospy.Time(0))
+
+            st = TransformStamped()
+            st.header.stamp = t.header.stamp
+            st.header.frame_id = "map"
+            st.child_frame_id = label
+
+            st.transform.translation.x = tvec[0] + trans.transform.translation.x
+            st.transform.translation.y = tvec[1] + trans.transform.translation.y
+            st.transform.translation.z = 0
+
+            rospy.loginfo("Translation x: %f", st.transform.translation.x)
+            rospy.loginfo("Translation y: %f", st.transform.translation.y)
+            rospy.loginfo("Translation z: %f", st.transform.translation.z)
+
+            # Convert rotation vector to quaternion (dummy values used here)
+            st.transform.rotation.x = 0.0
+            st.transform.rotation.y = 0.0
+            st.transform.rotation.z = 0.0
+            st.transform.rotation.w = 1.0
+
+            # Publish the static transform
+            self.static_tf_broadcaster.sendTransform(st)
+            
         else:
             rospy.logwarn(f"Pose estimation failed for ROI Object ID {object_id}.")
 
