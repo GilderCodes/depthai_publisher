@@ -103,8 +103,8 @@ class DepthaiCamera():
             return
 
         # Check if this ID has already been published
-        if object_id in self.published_ids:
-            return
+        # if object_id in self.published_ids:
+        #     return
 
         # Mark this ID as published
         self.published_ids.add(object_id)
