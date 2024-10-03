@@ -31,9 +31,9 @@ syncNN = True
 # model path
 modelsPath = "/home/uavteam6/catkin_ws/src/depthai_publisher/src/depthai_publisher/models"
 # modelName = 'exp31Yolov5_ov21.4_6sh'
-modelName = 'Model2-V5'
+modelName = 'Model2-v7'
 # confJson = 'exp31Yolov5.json'
-confJson = 'Model2-V5.json'
+confJson = 'Model2-v7.json'
 
 ################################  Yolo Config File
 # parse config
@@ -298,8 +298,8 @@ class DepthaiCamera():
         pipeline = dai.Pipeline()
 
         # pipeline.setOpenVINOVersion(version = dai.OpenVINO.VERSION_2021_4)
-        # pipeline.setOpenVINOVersion(version=dai.OpenVINO.Version.VERSION_2021_4)
-        pipeline.setOpenVINOVersion(version=dai.OpenVINO.Version.VERSION_2022_1)
+        pipeline.setOpenVINOVersion(version=dai.OpenVINO.Version.VERSION_2021_4)
+        #pipeline.setOpenVINOVersion(version=dai.OpenVINO.Version.VERSION_2022_1)
 
         # Define a neural network that will make predictions based on the source frames
         detection_nn = pipeline.create(dai.node.YoloDetectionNetwork)

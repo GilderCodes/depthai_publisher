@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import depthai as dai
 import cv2
 import rospy
 import numpy as np
@@ -23,8 +24,10 @@ class PoseEstimator:
         rospy.Subscriber('/aruco_detection', Float32MultiArray, self.aruco_callback)
         rospy.Subscriber('/roi_detection', Float32MultiArray, self.roi_callback)
         self.pub_found = rospy.Publisher('/emulated_uav/target_found', Time, queue_size=10)
-        # self.sub_uav_pose = rospy.Subscriber('/mavros/local_position/pose', PoseStamped, self.callback_uav_pose)
-        self.sub_uav_pose = rospy.Subscriber('/uavasr/pose', PoseStamped, self.callback_uav_pose)
+
+        # Change these two
+        self.sub_uav_pose = rospy.Subscriber('/mavros/local_position/pose', PoseStamped, self.callback_uav_pose)
+        #self.sub_uav_pose = rospy.Subscriber('/uavasr/pose', PoseStamped, self.callback_uav_pose)
 
         # Publishers
         self.aruco_stored_pub = rospy.Publisher('/aruco_stored', Float32MultiArray, queue_size=10)
@@ -32,7 +35,6 @@ class PoseEstimator:
         # Initialize ArUco marker parameters
         marker_size = 0.2 # Updated the marker size to what they will be
         self.model_object = np.array([
-            (0, 0, 0),
             (-marker_size / 2, marker_size / 2, 0),  # Top-left corner
             (marker_size / 2, marker_size / 2, 0),   # Top-right corner
             (marker_size / 2, -marker_size / 2, 0),  # Bottom-right corner
@@ -41,8 +43,16 @@ class PoseEstimator:
 
         # Camera parameters
         self.dist_coeffs = np.array([[-0.10818, 0.12793, 0.00000, 0.00000, -0.04204]], dtype=np.float32) #msg in D
+        self.dist_coeffs = np.array([[10.328059, -90.200119, 0.00134, 0.001852, 295.483307, 10.156362, -89.278458, 292.236237, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]], dtype=np.float32)
+        self.dist_coeffs = np.array([[10.328059, -90.200119, 0.000134, 0.000344, 295.483307]], dtype=np.float32)
         self.camera_matrix = np.array([(615.381, 0.0, 320.0), 
                                        (0.0, 615.381, 240.0), 
+                                       (0.0, 0.0, 1.0)], dtype=np.float32) # msg in P 
+        self.camera_matrix = np.array([(3071.93994140625, 0.0, 1950.888916015625), 
+                                       (0.0, 3071.93994140625, 1120.281982421875), 
+                                       (0.0, 0.0, 1.0)], dtype=np.float32) # msg in P 
+        self.camera_matrix = np.array([(327.52429037193957, 0.0, 208.0), 
+                                       (0.0, 570.3595325447977, 208.0), 
                                        (0.0, 0.0, 1.0)], dtype=np.float32) # msg in P 
         
         # Store the tf2 broadcasters
@@ -124,7 +134,7 @@ class PoseEstimator:
 
             t.transform.translation.x = tvec_map[0]
             t.transform.translation.y = tvec_map[1]
-            t.transform.translation.z = tvec_map[2]
+            t.transform.translation.z = 0.0 #tvec_map[2]
 
             rospy.loginfo("Translation x: %f", t.transform.translation.x)
             rospy.loginfo("Translation y: %f", t.transform.translation.y)
@@ -163,7 +173,7 @@ class PoseEstimator:
 
     #     # Create the object model based on the bounding box size
     #     self.model_obj = np.array([
-    #         (0, 0, 0),
+    #         # (0, 0, 0),
     #         (-marker_size_x / 2, marker_size_y / 2, 0),  # Top-left corner
     #         (marker_size_x / 2, marker_size_y / 2, 0),   # Top-right corner
     #         (marker_size_x / 2, -marker_size_y / 2, 0),  # Bottom-right corner
@@ -177,11 +187,15 @@ class PoseEstimator:
 
     #     # Convert ROI to a 4-corner format for pose estimation
     #     corners_t2d = np.array([
-    #         [int(center_x), int(center_y)],
-    #         [xmin, ymin],  # Top-left corner
-    #         [xmax, ymin],  # Top-right corner
-    #         [xmax, ymax],  # Bottom-right corner
-    #         [xmin, ymax]   # Bottom-left corner
+    #         # [int(center_x), int(center_y)],
+    #         # [xmin, ymin],  # Top-left corner
+    #         # [xmax, ymin],  # Top-right corner
+    #         # [xmax, ymax],  # Bottom-right corner
+    #         # [xmin, ymax]   # Bottom-left corner
+    #         [xmin, ymax],  # Top-left corner
+    #         [xmax, ymax],  # Top-right corner
+    #         [xmax, ymin],  # Bottom-right corner
+    #         [xmin, ymin]   # Bottom-left corner
     #     ], dtype=np.float32)
 
     #     # Print the details of the ROI detection
@@ -217,6 +231,8 @@ class PoseEstimator:
 
     #         # Publish the transform
     #         self.tf_broadcaster.sendTransform(t)
+    #         t.child_frame_id = label
+    #         self.static_tf_broadcaster.sendTransform(t)
     #         self.pub_found.publish(time_found)
     #         rospy.loginfo(f"Target Sent")
             
@@ -245,8 +261,7 @@ class PoseEstimator:
         object_height_pixels = ymax - ymin
 
         # Estimate real-world size
-        # Note: You need to provide the actual drone height here
-        drone_height = self.z_p  # Assuming self.z_p contains the current drone height
+        drone_height = self.z_p - 0.2  # Assuming self.z_p contains the current drone height
         camera_fov_vertical = 54  # Adjust this based on your camera specs
         image_size = (416, 416)  # As per your specification
 
@@ -313,6 +328,9 @@ class PoseEstimator:
             # Publish the transform
             self.tf_broadcaster.sendTransform(t)
             self.pub_found.publish(time_found)
+            #t.child_frame_id = label
+            #t.transform.translation.z = 0.0
+            #self.static_tf_broadcaster.sendTransform(t)
             rospy.loginfo(f"Target Sent")
             
         else:

@@ -1,6 +1,6 @@
 <launch>
     <!-- Launch the model1_detector node -->
-    <node pkg="depthai_publisher" type="model2_detector" name="model1_detector" output="screen" />
+    <node pkg="depthai_publisher" type="model2_detector" name="model2_detector" output="screen" />
 
     <!-- Launch the aruco_updated node -->
     <node pkg="depthai_publisher" type="aruco_updated" name="aruco_updated" output="screen" />

@@ -31,9 +31,9 @@ syncNN = True
 # model path
 modelsPath = "/home/uavteam6/catkin_ws/src/depthai_publisher/src/depthai_publisher/models"
 # modelName = 'exp31Yolov5_ov21.4_6sh'
-modelName = 'BestptModel1-v4'
+modelName = 'Model1-v7'
 # confJson = 'exp31Yolov5.json'
-confJson = 'BestptModel1-v4.json'
+confJson = 'Model1-v7.json'
 
 ################################  Yolo Config File
 # parse config
@@ -66,10 +66,11 @@ class DepthaiCamera():
     pub_topic_detect = '/depthai_node/detection/compressed'
     pub_topic_cam_inf = '/depthai_node/camera/camera_info'
     pub_topic_roi = '/roi_detection'  # New topic for ROI detection
+    
 
     def __init__(self):
         self.pipeline = dai.Pipeline()
-
+        self.count = 1
          # Input image size
         if "input_size" in nnConfig:
             self.nn_shape_w, self.nn_shape_h = tuple(map(int, nnConfig.get("input_size").split('x')))
@@ -87,7 +88,61 @@ class DepthaiCamera():
         # Keep track of already published IDs
         self.published_ids = set()
 
-        rospy.loginfo("Publishing images to rostopic: {}".format(self.pub_topic))
+        # # Get Camera Details
+        # self.device = dai.Device(self.pipeline)
+        # calibData = self.device.readCalibration()
+        # self.intrinsics = np.array(calibData.getCameraIntrinsics(dai.CameraBoardSocket.RGB))
+        # self.distortion = np.array(calibData.getDistortionCoefficients(dai.CameraBoardSocket.RGB))
+
+        # # Get original image size
+        # original_width = self.intrinsics[0, 2] * 2
+        # original_height = self.intrinsics[1, 2] * 2
+
+        # # Calculate scaling factors
+        # scale_x = self.nn_shape_w / original_width
+        # scale_y = self.nn_shape_h / original_height
+
+        # # Scale camera matrix
+        # self.camera_matrix = np.array([
+        #     [self.intrinsics[0, 0] * scale_x, 0, self.nn_shape_w / 2],
+        #     [0, self.intrinsics[1, 1] * scale_y, self.nn_shape_h / 2],
+        #     [0, 0, 1]
+        # ])
+
+        # # Scale distortion coefficients
+        # # The scaling depends on the distortion model. This assumes the common 5-parameter model:
+        # # (k1, k2, p1, p2, k3) or (k1, k2, t1, t2, k3)
+        # if len(self.distortion) >= 5:
+        #     self.scaled_distortion = np.array([
+        #         self.distortion[0],
+        #         self.distortion[1],
+        #         self.distortion[2] * scale_x,  # p1 or t1
+        #         self.distortion[3] * scale_y,  # p2 or t2
+        #         self.distortion[4]
+        #     ])
+        # else:
+        #     # If the distortion model is different, you might need to adjust this scaling
+        #     self.scaled_distortion = self.distortion
+
+        # print("Camera Intrinsics Matrix (original):")
+        # print(np.array2string(self.intrinsics, precision=6, suppress_small=True))
+        
+        # print("\nCamera Matrix (converted for 416x416):")
+        # print(np.array2string(self.camera_matrix, precision=6, suppress_small=True))
+
+        # print("\nDistortion Coefficients (original):")
+        # print(np.array2string(self.distortion, precision=6, suppress_small=True))
+
+        # print("\nDistortion Coefficients (scaled for 416x416):")
+        # print(np.array2string(self.scaled_distortion, precision=6, suppress_small=True))
+
+        # print("\nFor use in code:")
+        # print("self.camera_matrix = np.array([")
+        # for row in self.camera_matrix:
+        #     print(f"    {row.tolist()},")
+        # print("])")
+
+        # print("\nself.dist_coeffs = np.array({})".format(self.scaled_distortion.tolist()))
 
         self.br = CvBridge()
 
@@ -103,9 +158,13 @@ class DepthaiCamera():
             return
 
         # Check if this ID has already been published
-        # if object_id in self.published_ids:
+        # CHANGE THIS BACK!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        if object_id in self.published_ids:
+            return
+        # self.count += 1
+        # if self.count % 10 != 0:
         #     return
-
+        
         # Mark this ID as published
         self.published_ids.add(object_id)
 
