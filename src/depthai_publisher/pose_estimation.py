@@ -26,8 +26,8 @@ class PoseEstimator:
         self.pub_found = rospy.Publisher('/emulated_uav/target_found', Time, queue_size=10)
 
         # Change these two
-        self.sub_uav_pose = rospy.Subscriber('/mavros/local_position/pose', PoseStamped, self.callback_uav_pose)
-        #self.sub_uav_pose = rospy.Subscriber('/uavasr/pose', PoseStamped, self.callback_uav_pose)
+        #self.sub_uav_pose = rospy.Subscriber('/mavros/local_position/pose', PoseStamped, self.callback_uav_pose)
+        self.sub_uav_pose = rospy.Subscriber('/uavasr/pose', PoseStamped, self.callback_uav_pose)
 
         # Publishers
         self.aruco_stored_pub = rospy.Publisher('/aruco_stored', Float32MultiArray, queue_size=10)
@@ -74,6 +74,12 @@ class PoseEstimator:
         #rospy.loginfo(f"UAV Position: x = {self.x_p:.2f}, y = {self.y_p:.2f}, z = {self.z_p:.2f}")
 
     def aruco_callback(self, msg):
+        # Obtain the transform from the camera frame to the map frame
+        try:
+            trans = self.tf_buffer.lookup_transform('map', 'camera', rospy.Time(0))
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+            rospy.logwarn("Failed to lookup transform from camera to map frame")
+            return
         # The first element of `msg.data` is the ArUco ID, and the rest are corners
         aruco_id = int(msg.data[0])
         corners = msg.data[1:]
@@ -104,13 +110,6 @@ class PoseEstimator:
         rospy.loginfo(f"Marker position from camera: x={x:.3f}, y={y:.3f}, z={z:.3f} meters")
         
         if rvec is not None and tvec is not None:
-        # Obtain the transform from the camera frame to the map frame
-            try:
-                trans = self.tf_buffer.lookup_transform('map', 'camera', rospy.Time(0))
-            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-                rospy.logwarn("Failed to lookup transform from camera to map frame")
-                return
-
             # Extract translation and rotation from the transform
             map_translation = trans.transform.translation
             map_rotation = trans.transform.rotation
@@ -151,93 +150,6 @@ class PoseEstimator:
         else:
             rospy.logwarn(f"Pose estimation failed for marker ID {aruco_id}.")
 
-    # def roi_callback(self, msg):
-    #    # subprocess.Popen(['rosrun', 'spar_node', 'tf2_broadcaster_target'])
-    #     # The data consists of [object_id, xmin, ymin, xmax, ymax]
-    #     object_id = int(10*msg.data[0])
-    #     xmin, ymin, xmax, ymax = msg.data[1:5]
-    #     marker_size_x, marker_size_y = msg.data[5:7] 
-
-    #     # Determine the label based on the ID
-    #     if object_id == 1:
-    #         label = "Backpack"
-    #     elif object_id == 2:
-    #         label = "Human"
-    #     elif object_id == 3:
-    #         label = "Drone"
-    #     elif object_id == 4:
-    #         label = "Phone"
-    #     else:
-    #         label = "Unknown"
-
-
-    #     # Create the object model based on the bounding box size
-    #     self.model_obj = np.array([
-    #         # (0, 0, 0),
-    #         (-marker_size_x / 2, marker_size_y / 2, 0),  # Top-left corner
-    #         (marker_size_x / 2, marker_size_y / 2, 0),   # Top-right corner
-    #         (marker_size_x / 2, -marker_size_y / 2, 0),  # Bottom-right corner
-    #         (-marker_size_x / 2, -marker_size_y / 2, 0)  # Bottom-left corner
-    #     ], dtype=np.float32)
-        
-
-    #     # Calculate the center as the average of the x and y coordinates of all corners
-    #     center_x = np.mean([xmin, xmax])
-    #     center_y = np.mean([ymin, ymax])
-
-    #     # Convert ROI to a 4-corner format for pose estimation
-    #     corners_t2d = np.array([
-    #         # [int(center_x), int(center_y)],
-    #         # [xmin, ymin],  # Top-left corner
-    #         # [xmax, ymin],  # Top-right corner
-    #         # [xmax, ymax],  # Bottom-right corner
-    #         # [xmin, ymax]   # Bottom-left corner
-    #         [xmin, ymax],  # Top-left corner
-    #         [xmax, ymax],  # Top-right corner
-    #         [xmax, ymin],  # Bottom-right corner
-    #         [xmin, ymin]   # Bottom-left corner
-    #     ], dtype=np.float32)
-
-    #     # Print the details of the ROI detection
-    #     rospy.loginfo(f"Detected ROI Object ID: {object_id}")
-    #     rospy.loginfo(f"Bounding Box: ({xmin}, {ymin}), ({xmax}, {ymax})")
-    #     rospy.loginfo(f"Converted Corners:\n{corners_t2d}")
-
-    #     # Perform pose estimation
-    #     (success, rvec, tvec) = cv2.solvePnP(self.model_obj, corners_t2d, self.camera_matrix, self.dist_coeffs)
-
-    #     if success and label != "Unknown":
-    #         # Create a TransformStamped message
-    #         # Send the target transform
-    #         time_found = rospy.Time.now()
-    #         t = TransformStamped()
-    #         t.header.stamp = rospy.Time.now()
-    #         t.header.frame_id = "camera"
-    #         t.child_frame_id = "target" #"{}".format(object_id)
-
-    #         t.transform.translation.x = tvec[0]
-    #         t.transform.translation.y = tvec[1]
-    #         t.transform.translation.z = tvec[2]
-
-    #         rospy.loginfo("Translation x: %f", t.transform.translation.x)
-    #         rospy.loginfo("Translation y: %f", t.transform.translation.y)
-    #         rospy.loginfo("Translation z: %f", t.transform.translation.z)
-
-    #         # Convert rotation vector to quaternion (dummy values used here)
-    #         t.transform.rotation.x = 0.0
-    #         t.transform.rotation.y = 0.0
-    #         t.transform.rotation.z = 0.0
-    #         t.transform.rotation.w = 1.0
-
-    #         # Publish the transform
-    #         self.tf_broadcaster.sendTransform(t)
-    #         t.child_frame_id = label
-    #         self.static_tf_broadcaster.sendTransform(t)
-    #         self.pub_found.publish(time_found)
-    #         rospy.loginfo(f"Target Sent")
-            
-    #     else:
-    #         rospy.logwarn(f"Pose estimation failed for ROI Object ID {object_id}.")
     def roi_callback(self, msg):
         # The data consists of [object_id, xmin, ymin, xmax, ymax, marker_size_x, marker_size_y]
         object_id = int(10*msg.data[0])
