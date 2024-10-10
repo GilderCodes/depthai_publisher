@@ -12,6 +12,7 @@ from std_msgs.msg import Time
 from geometry_msgs.msg import TransformStamped, PoseStamped, PointStamped
 import subprocess
 import math 
+import tf2_geometry_msgs
 
 class PoseEstimator:
     aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_5X5_100)
@@ -26,8 +27,8 @@ class PoseEstimator:
         self.pub_found = rospy.Publisher('/emulated_uav/target_found', Time, queue_size=10)
 
         # Change these two
-        #self.sub_uav_pose = rospy.Subscriber('/mavros/local_position/pose', PoseStamped, self.callback_uav_pose)
-        self.sub_uav_pose = rospy.Subscriber('/uavasr/pose', PoseStamped, self.callback_uav_pose)
+        self.sub_uav_pose = rospy.Subscriber('/mavros/local_position/pose', PoseStamped, self.callback_uav_pose)
+        #self.sub_uav_pose = rospy.Subscriber('/uavasr/pose', PoseStamped, self.callback_uav_pose)
 
         # Publishers
         self.aruco_stored_pub = rospy.Publisher('/aruco_stored', Float32MultiArray, queue_size=10)
@@ -155,6 +156,15 @@ class PoseEstimator:
         object_id = int(10*msg.data[0])
         xmin, ymin, xmax, ymax = msg.data[1:5]
         marker_size_x, marker_size_y = msg.data[5:7]
+        detection_time = rospy.Time(msg.data[7])
+        detector_current_time = rospy.Time(msg.data[8])
+        time_since_detection = detector_current_time - detection_time
+        
+        current_time = rospy.Time.now()
+        adjusted_time = current_time - time_since_detection
+
+        rospy.loginfo(f"Time since detection: {time_since_detection.to_sec()} seconds")
+        rospy.loginfo(f"Adjusted time for transform: {adjusted_time.to_sec()}")
 
         # Determine the label based on the ID
         if object_id == 1:
@@ -219,7 +229,7 @@ class PoseEstimator:
             # Send the target transform
             time_found = rospy.Time.now()
             t = TransformStamped()
-            t.header.stamp = rospy.Time.now()
+            t.header.stamp = adjusted_time
             t.header.frame_id = "camera"
             t.child_frame_id = "target" #"{}".format(object_id)
 
@@ -240,10 +250,49 @@ class PoseEstimator:
             # Publish the transform
             self.tf_broadcaster.sendTransform(t)
             self.pub_found.publish(time_found)
-            #t.child_frame_id = label
-            #t.transform.translation.z = 0.0
-            #self.static_tf_broadcaster.sendTransform(t)
-            rospy.loginfo(f"Target Sent")
+            # Lookup the transform at the time of detection
+            try:
+                # Use a small timeout to avoid waiting too long
+                timeout = rospy.Duration(0.1)
+                transform = self.tf_buffer.lookup_transform("map", "camera", adjusted_time, timeout)
+                
+                # Apply the transform to the target position
+                target_point = PointStamped()
+                target_point.header = t.header
+                target_point.point.x = t.transform.translation.x
+                target_point.point.y = t.transform.translation.y
+                target_point.point.z = t.transform.translation.z
+
+                transformed_point = tf2_geometry_msgs.do_transform_point(target_point, transform)
+
+                # Update the transform with the transformed point
+                t.header.frame_id = "map"
+                t.transform.translation.x = transformed_point.point.x
+                t.transform.translation.y = transformed_point.point.y
+                t.transform.translation.z = transformed_point.point.z
+
+                # Publish the transform
+                self.tf_broadcaster.sendTransform(t)
+                self.pub_found.publish(adjusted_time)
+                rospy.loginfo(f"Target Sent at adjusted time: {adjusted_time.to_sec()}")
+                static_t = TransformStamped()
+                static_t.header.stamp = rospy.Time.now()
+                static_t.header.frame_id = "map"
+                static_t.child_frame_id = label
+                static_t.transform.translation.x = transformed_point.point.x
+                static_t.transform.translation.y = transformed_point.point.y
+                static_t.transform.translation.z = 0.0  # Set z to 0
+                static_t.transform.rotation.w = 1.0  # Identity rotation
+                static_t.transform.rotation.x = 0.0
+                static_t.transform.rotation.y = 0.0
+                static_t.transform.rotation.z = 0.0
+
+                # Publish the static transform
+                self.static_tf_broadcaster.sendTransform(static_t)
+                rospy.loginfo(f"Static backpack marker sent at position: x={static_t.transform.translation.x}, y={static_t.transform.translation.y}, z=0.0")
+            except:
+                rospy.logwarn(f"Failed to transform target: {e}")
+                rospy.logwarn(f"Adjusted time: {adjusted_time.to_sec()}, Current time: {rospy.Time.now().to_sec()}")
             
         else:
             rospy.logwarn(f"Pose estimation failed for ROI Object ID {object_id}.")

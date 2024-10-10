@@ -121,13 +121,13 @@ class DepthaiCamera():
         marker_size_x = width / uframe.shape[1]  # Normalize to frame width
         marker_size_y = height / uframe.shape[0] # Normalize to frame height
 
-        # Create and publish Float32MultiArray message
         msg = Float32MultiArray()
-        # Publish as bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax
-        msg.data = [object_id, bbox[0], bbox[1], bbox[2], bbox[3], marker_size_x, marker_size_y]
-        #msg.data = [object_id, detection.xmin, detection.ymin, detection.xmax, detection.ymax]
+        detection_time = rospy.Time.now()
+        current_time = rospy.Time.now()
+        msg.data = [object_id, bbox[0], bbox[1], bbox[2], bbox[3], marker_size_x, marker_size_y, 
+                    detection_time.to_sec(), current_time.to_sec()]
         self.pub_roi_detection.publish(msg)
-        rospy.loginfo("Detection sent")
+        rospy.loginfo(f"Detection sent with detection time: {detection_time.to_sec()}, current time: {current_time.to_sec()}")
 
     def publish_camera_info(self, timer=None):
         # Create a publisher for the CameraInfo topic
